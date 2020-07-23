@@ -119,6 +119,10 @@ def study_set(set_to_study, card_counter=0, previous_cards=[], prev_card=False, 
     if prev_card:
         ui.study_prompt(previous_cards[card_counter], card_counter, set_to_study)
         cur_card = previous_cards[card_counter]
+    elif starred:
+        cur_card = set_to_study.get_starred_cards()[card_counter]
+        ui.study_prompt(cur_card, card_counter, set_to_study)
+        print(set_to_study.get_starred_cards())
     else:
         cur_card = set_to_study.get_cards()[card_counter]
         ui.study_prompt(cur_card, card_counter, set_to_study)
@@ -174,6 +178,7 @@ def study_set(set_to_study, card_counter=0, previous_cards=[], prev_card=False, 
 
 
 def set_view():
+
     try:
         set_choices = get_set_titles()
 
@@ -181,6 +186,10 @@ def set_view():
         set_choices.append(consts.EXIT)
     except json.decoder.JSONDecodeError:
         set_choices = [consts.ADD_SET, consts.EXIT]
+    except FileNotFoundError:
+        print(consts.RED, 'It looks like you haven\'t initialized a file to store your sets!' \
+                          ' To do this run \'remembrall --init\'.'.center(consts.WIDTH))
+        raise SystemExit
 
     set_options_prompt = {
         'type': 'list',
@@ -253,8 +262,12 @@ def display_intro_animation():
 
 def initialize():
     # initialize folder in .config folder to store all of the sets in json
+    print('This will make a directory at the location ~/.config/remembrall and place a file ' \
+          'in it to store your sets.')
+    sleep(1)
+
     if os.path.isdir(consts.PATH_TO_SETS):
-        print(consts.RED_BOLD, 'It seems like you have already initialized a config!')
+        print(consts.RED_BOLD, 'It seems like you have already initialized a storage file!')
     else:
         os.system('mkdir -p ' + consts.PATH_TO_SETS)
         os.system('touch ' + consts.PATH_TO_SETS + '/sets.json')

@@ -13,8 +13,8 @@ class Set(object):
         # if set already has cards
         pass
 
-    def add_starred_cards(self, *cards):
-        self._starred_cards.append(cards)
+    def add_starred_card(self, card):
+        self._starred_cards.append(card)
     
     def set_title(self, _title):
         self._title = _title
@@ -40,6 +40,10 @@ class Set(object):
         random.shuffle(self.get_cards())
 
     def get_starred_cards(self):
+        for card in self.get_cards():
+            if card.get_is_starred():
+                self.add_starred_card(card)
+
         return self._starred_cards
 
     def __len__(self):
