@@ -116,16 +116,19 @@ def edit_set(set_to_edit):
 
 def study_set(set_to_study, card_counter=0, previous_cards=[], prev_card=False, starred=False):
     # Display Card
+    set_length = len(set_to_study)
+
     if prev_card:
-        ui.study_prompt(previous_cards[card_counter], card_counter, set_to_study)
+        ui.study_prompt(previous_cards[card_counter], card_counter, set_length)
         cur_card = previous_cards[card_counter]
     elif starred:
+        set_length = len(set_to_study.get_starred_cards())
+
         cur_card = set_to_study.get_starred_cards()[card_counter]
-        ui.study_prompt(cur_card, card_counter, set_to_study)
-        print(set_to_study.get_starred_cards())
+        ui.study_prompt(cur_card, card_counter, set_length)
     else:
         cur_card = set_to_study.get_cards()[card_counter]
-        ui.study_prompt(cur_card, card_counter, set_to_study)
+        ui.study_prompt(cur_card, card_counter, set_length)
 
     # Handle Key Presses
     term_showing = True
@@ -133,27 +136,27 @@ def study_set(set_to_study, card_counter=0, previous_cards=[], prev_card=False, 
         choice = getch.getch()
         if choice == ' ':
             if term_showing:
-                ui.study_prompt(cur_card, card_counter, set_to_study, show_definition=True)
+                ui.study_prompt(cur_card, card_counter, set_to_study, set_length, show_definition=True)
                 term_showing = False
             else:
-                ui.study_prompt(cur_card, card_counter, set_to_study)
+                ui.study_prompt(cur_card, card_counter, set_length)
                 term_showing = True
         elif choice == 'q':
             set_view()
         elif choice == 's':
             if cur_card.get_is_starred():
                 cur_card.set_is_starred(False)
-                study_set(set_to_study, card_counter=card_counter, previous_cards=previous_cards)
+                study_set(set_to_study, card_counter=card_counter, previous_cards=previous_cards, starred=starred)
             else:
                 cur_card.set_is_starred(True)
-                study_set(set_to_study, card_counter=card_counter, previous_cards=previous_cards)
+                study_set(set_to_study, card_counter=card_counter, previous_cards=previous_cards, starred=starred)
         elif choice == 'h' and card_counter > 0:
-            study_set(set_to_study, card_counter=card_counter - 1, previous_cards=previous_cards, prev_card=True)
-        elif choice == 'l' and card_counter != len(set_to_study)-1:
+            study_set(set_to_study, card_counter=card_counter - 1, previous_cards=previous_cards, prev_card=True, starred=starred)
+        elif choice == 'l' and card_counter != set_length-1:
             if not prev_card:
                 previous_cards.append(cur_card)
-            study_set(set_to_study, card_counter=card_counter + 1, previous_cards=previous_cards)
-        elif card_counter == len(set_to_study)-1:
+            study_set(set_to_study, card_counter=card_counter + 1, previous_cards=previous_cards, starred=starred)
+        elif card_counter == set_length-1:
             finished_studying_message = {
                 'type': 'list',
                 'name': 'post_studying_choice',
