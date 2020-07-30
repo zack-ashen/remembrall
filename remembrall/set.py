@@ -28,7 +28,7 @@ class Set(object):
     def to_list(self):
         card_list = []
         for card in self._cards:
-            card_item = [card.get_term(), card.get_definition()]
+            card_item = [card.get_term(), card.get_definition(), card.get_is_starred()]
             card_list.append(card_item)
         return card_list
 
@@ -51,16 +51,16 @@ class Set(object):
 
 
 class Card(object):
-    def __init__(self, _term, _definition, _is_starred=False):
+    def __init__(self, _term, _definition, is_starred=False):
         self.set_term(_term)
         self.set_definition(_definition)
-        self.set_is_starred(_is_starred)
+        self.set_is_starred(is_starred)
 
     def set_is_starred(self, is_starred):
-        self._is_starred = is_starred
+        self.is_starred = is_starred
 
     def get_is_starred(self):
-        return self._is_starred
+        return self.is_starred
 
     def set_definition(self, definition):
         self._definition = definition

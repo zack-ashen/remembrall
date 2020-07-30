@@ -16,7 +16,6 @@ import sys
 from PyInquirer import prompt
 from pyfiglet import Figlet
 import argparse
-import keyboard
 import getch
 
 from set import Set, Card
@@ -35,14 +34,19 @@ def save_set(set_list):
 
 
 def retrieve_sets():
-    sets_file = open(consts.PATH_TO_SETS + '/sets.json', 'r')
+    try:
+        sets_file = open(consts.PATH_TO_SETS + '/sets.json', 'r')
+    except FileNotFoundError:
+        print(consts.RED, 'It looks like you haven\'t initialized a file to store your sets!' \
+                          ' To do this run \'remembrall --init\'.'.center(consts.WIDTH))
+        raise SystemExit
 
     set_dict = json.load(sets_file)
     set_list = []
     for set_title in set_dict:
         cards = []
         for card in set_dict[set_title]:
-            new_card = Card(card[0], card[1])
+            new_card = Card(card[0], card[1], is_starred=card[2])
             cards.append(new_card)
 
         current_set = Set(set_title, cards)
@@ -61,12 +65,41 @@ def get_set_titles():
     return set_titles
 
 
+def convert_quizlet(quizlet_file):
+    try:
+        set_list = retrieve_sets()
+    except json.decoder.JSONDecodeError:
+        set_list = []
+
+    quizlet_file = quizlet_file.readlines()
+
+    cards = []
+    for term_index in range(len(quizlet_file)):
+        card_str = quizlet_file[term_index]
+        division_index = card_str.find('\t')
+
+        term = card_str[:division_index]
+        definition = card_str[division_index+1:-1]
+
+        if definition == '':
+            continue
+
+        card = Card(term, definition)
+        cards.append(card)
+
+    set_title = make_set_title()
+    quizlet_set = Set(set_title, cards)
+    set_list.append(quizlet_set)
+    save_set(set_list)
+
+    print(consts.GREEN, 'Quizlet set converted!')
+
+
 def make_set_title():
     set_title_prompt = {
         'type': 'input',
         'name': 'set_title',
-        'message': 'What should the name of the set be?',
-        'type': 'input'
+        'message': 'What should the name of the set be?'
     }
     set_title_input = prompt(set_title_prompt)
     return set_title_input['set_title']
@@ -111,24 +144,26 @@ def add_set():
 
 
 def edit_set(set_to_edit):
+    edit_set_prompt = {
+        'type': 'list',
+        'name': 'edit_set_choice',
+        'message': consts.EDIT_SET_PROMPT,
+        'choices': [consts.ADD_CARDS, consts.EDIT_CARDS, consts.RENAME_SET, consts.GO_BACK]
+    }
+
     return set
 
 
-def study_set(set_to_study, card_counter=0, previous_cards=[], prev_card=False, starred=False):
+def study_set(set_list, set_to_study, card_counter=0, previous_cards=[], prev_card=False, starred=False):
     # Display Card
-    set_length = len(set_to_study)
-
-    if prev_card:
-        ui.study_prompt(previous_cards[card_counter], card_counter, set_length)
-        cur_card = previous_cards[card_counter]
-    elif starred:
+    if starred:
         set_length = len(set_to_study.get_starred_cards())
-
         cur_card = set_to_study.get_starred_cards()[card_counter]
-        ui.study_prompt(cur_card, card_counter, set_length)
     else:
+        set_length = len(set_to_study)
         cur_card = set_to_study.get_cards()[card_counter]
-        ui.study_prompt(cur_card, card_counter, set_length)
+    
+    ui.study_prompt(cur_card, card_counter, set_length)
 
     # Handle Key Presses
     term_showing = True
@@ -136,7 +171,7 @@ def study_set(set_to_study, card_counter=0, previous_cards=[], prev_card=False, 
         choice = getch.getch()
         if choice == ' ':
             if term_showing:
-                ui.study_prompt(cur_card, card_counter, set_to_study, set_length, show_definition=True)
+                ui.study_prompt(cur_card, card_counter, set_length, show_definition=True)
                 term_showing = False
             else:
                 ui.study_prompt(cur_card, card_counter, set_length)
@@ -146,53 +181,58 @@ def study_set(set_to_study, card_counter=0, previous_cards=[], prev_card=False, 
         elif choice == 's':
             if cur_card.get_is_starred():
                 cur_card.set_is_starred(False)
-                study_set(set_to_study, card_counter=card_counter, previous_cards=previous_cards, starred=starred)
+                study_set(set_list, set_to_study, card_counter=card_counter, previous_cards=previous_cards, starred=starred)
             else:
                 cur_card.set_is_starred(True)
-                study_set(set_to_study, card_counter=card_counter, previous_cards=previous_cards, starred=starred)
+                study_set(set_list, set_to_study, card_counter=card_counter, previous_cards=previous_cards, starred=starred)
         elif choice == 'h' and card_counter > 0:
-            study_set(set_to_study, card_counter=card_counter - 1, previous_cards=previous_cards, prev_card=True, starred=starred)
+            study_set(set_list, set_to_study, card_counter=card_counter - 1, previous_cards=previous_cards, prev_card=True, starred=starred)
         elif choice == 'l' and card_counter != set_length-1:
             if not prev_card:
                 previous_cards.append(cur_card)
-            study_set(set_to_study, card_counter=card_counter + 1, previous_cards=previous_cards, starred=starred)
+            study_set(set_list, set_to_study, card_counter=card_counter + 1, previous_cards=previous_cards, starred=starred)
         elif card_counter == set_length-1:
             finished_studying_message = {
                 'type': 'list',
                 'name': 'post_studying_choice',
                 'message': consts.FINISHED_STUDYING,
-                'choices': [consts.STUDY_AGAIN, consts.STUDY_RESHUFFLE, consts.STUDY_STARRED, consts.GO_BACK]
+                'choices': [consts.STUDY_AGAIN, consts.STUDY_RESHUFFLE, consts.STUDY_STARRED, consts.EDIT_SET, consts.DELETE_SET, consts.GO_BACK]
             }
 
             try:
                 finished_studying_choice = prompt(finished_studying_message)['post_studying_choice']
             except KeyError:
+                save_set(set_list)
                 raise SystemExit
 
             if finished_studying_choice == consts.STUDY_AGAIN:
-                study_set(set_to_study, card_counter=0)
+                study_set(set_list, set_to_study, card_counter=0)
             elif finished_studying_choice == consts.STUDY_RESHUFFLE:
                 set_to_study.shuffle()
-                study_set(set_to_study, card_counter=0)
+                study_set(set_list, set_to_study, card_counter=0)
             elif finished_studying_choice == consts.STUDY_STARRED:
-                study_set(set_to_study, card_counter=0, starred=True)
+                study_set(set_list, set_to_study, card_counter=0, starred=True)
+            elif finished_studying_choice == consts.EDIT_SET:
+                edit_set(set_to_study)
+                save_set(set_list)
+                study_set(set_list, set_to_study, card_counter=0, starred=True)
             elif finished_studying_choice == consts.GO_BACK:
+                save_set(set_list)
                 set_view()
 
 
 def set_view():
-
     try:
         set_choices = get_set_titles()
+
+        set_list = retrieve_sets()
 
         set_choices.append(consts.ADD_SET)
         set_choices.append(consts.EXIT)
     except json.decoder.JSONDecodeError:
+        set_list = []
+
         set_choices = [consts.ADD_SET, consts.EXIT]
-    except FileNotFoundError:
-        print(consts.RED, 'It looks like you haven\'t initialized a file to store your sets!' \
-                          ' To do this run \'remembrall --init\'.'.center(consts.WIDTH))
-        raise SystemExit
 
     set_options_prompt = {
         'type': 'list',
@@ -240,7 +280,7 @@ def set_view():
         elif selected_set_choice == consts.STUDY_SET:
             set_list = retrieve_sets()
             set_list[index_of_set].shuffle()
-            study_set(set_list[index_of_set])
+            study_set(set_list, set_list[index_of_set])
         elif selected_set_choice == consts.GO_BACK:
             set_view()
 
@@ -269,13 +309,22 @@ def initialize():
           'in it to store your sets.')
     sleep(1)
 
-    if os.path.isdir(consts.PATH_TO_SETS):
+    if os.path.isdir(consts.PATH_TO_SETS + '/sets.json'):
         print(consts.RED_BOLD, 'It seems like you have already initialized a storage file!')
     else:
         os.system('mkdir -p ' + consts.PATH_TO_SETS)
         os.system('touch ' + consts.PATH_TO_SETS + '/sets.json')
 
+def dir_path(path):
+    if path[:1] == '~/':
+        path = os.path.relpath()
+        path = str(Path.home()) + path
 
+    if os.path.isfile(path):
+        return path
+    else:
+        raise argparse.ArgumentTypeError(f"readable_dir:{path} is not a valid path")
+    
 def handle_arguments():
     args = argparse.ArgumentParser(description='A simple cli notecard application for studying...')
     args.add_argument('--init', help='initialize new file for storing sets.', action='store_true')
@@ -283,13 +332,16 @@ def handle_arguments():
                                              'selection.', action='store_true')
     args.add_argument('--add', '-a', help='create a set', action='store_true')
     args.add_argument('--quick', '-q', help='skip intro animation...quickly start studying', action='store_true')
-    args.add_argument('--import', '-i', help='import a quizlet set')
+    args.add_argument('--convert', '-c', help='convert a quizlet set', type=argparse.FileType('r'))
 
     parser = args.parse_args()
+
     if parser.init:
         initialize()
     elif parser.quick:
         set_view()
+    elif parser.convert:
+        convert_quizlet(parser.convert)
     else:
         display_intro_animation()
         set_view()
