@@ -143,15 +143,88 @@ def add_set():
     return Set(set_title, card_list)
 
 
-def edit_set(set_to_edit):
+def delete_set(index_of_set):
+    set_list = retrieve_sets()
+    set_list.pop(index_of_set)
+    save_set(set_list)
+
+
+def edit_cards(set_to_edit):
+    os.system('clear')
+    
+    print('Search for the card via its term to edit it.'.center(consts.WIDTH))
+
+    i = 0
+    for card in set_to_edit.get_cards():
+        if i < consts.HEIGHT - 2:
+            print((card.get_term()[:30] + '/' + card.get_definition()[:30]).center(consts.WIDTH))
+        i += 1
+
+    print('==> ', end='')
+
+    try:
+        search_string = input()
+    except KeyboardInterrupt:
+        raise SystemExit
+
+    target_cards = set_to_edit.search(search_string)
+    card_strings = [consts.SEARCH_AGAIN]
+    for card in target_cards:
+        card_strings.append((card.get_term()[:30] + '/' + card.get_definition()[:30]))
+
+    search_prompt = {
+        'type': 'list',
+        'name': 'search_prompt_choice',
+        'message': 'Select the card you want to edit:',
+        'choices': card_strings
+    }
+
+    try:
+        search_choice = prompt(search_prompt)['search_prompt_choice']
+    except KeyError:
+        raise SystemExit
+
+    if search_choice == consts.SEARCH_AGAIN:
+        edit_cards(set_to_edit)
+
+
+
+def edit_set(set_to_edit, index_of_set):
+    set_list = retrieve_sets()
+
     edit_set_prompt = {
         'type': 'list',
         'name': 'edit_set_choice',
         'message': consts.EDIT_SET_PROMPT,
-        'choices': [consts.ADD_CARDS, consts.EDIT_CARDS, consts.RENAME_SET, consts.GO_BACK]
+        'choices': [consts.ADD_CARDS, consts.EDIT_CARDS, consts.RENAME_SET, consts.DELETE_SET, consts.GO_BACK]
     }
 
-    return set
+    try:
+        edit_set_response = prompt(edit_set_prompt)['edit_set_choice']
+    except KeyError:
+        raise SystemExit
+
+    if edit_set_response == consts.ADD_CARDS:
+        new_cards = make_cards()
+        set_to_edit.add_cards(new_cards)
+
+        set_list[index_of_set] = set_to_edit
+        save_set(set_list)
+        edit_set(set_to_edit, index_of_set)
+    elif edit_set_response == consts.EDIT_CARDS:
+        edit_cards(set_to_edit)
+    elif edit_set_response == consts.RENAME_SET:
+        new_title = make_set_title()
+        set_to_edit.set_title(new_title)
+
+        set_list[index_of_set] = set_to_edit
+        save_set(set_list)
+        edit_set(set_to_edit, index_of_set)
+    elif edit_set_response == consts.DELETE_SET:
+        delete_set(index_of_set)
+        set_view()
+    elif edit_set_response == consts.GO_BACK:
+        set_view()
 
 
 def study_set(set_list, set_to_study, card_counter=0, previous_cards=[], prev_card=False, starred=False):
@@ -191,6 +264,9 @@ def study_set(set_list, set_to_study, card_counter=0, previous_cards=[], prev_ca
             if not prev_card:
                 previous_cards.append(cur_card)
             study_set(set_list, set_to_study, card_counter=card_counter + 1, previous_cards=previous_cards, starred=starred)
+        elif choice == 'r':
+            set_to_study.reverse()
+            study_set(set_list, set_to_study, card_counter=card_counter, previous_cards=previous_cards, prev_card=prev_card, starred=starred)
         elif card_counter == set_length-1:
             finished_studying_message = {
                 'type': 'list',
@@ -276,7 +352,7 @@ def set_view():
 
         if selected_set_choice == consts.EDIT_SET:
             set_list = retrieve_sets()
-            set_list[index_of_set] = edit_set(set_list[index_of_set])
+            set_list[index_of_set] = edit_set(set_list[index_of_set], index_of_set)
         elif selected_set_choice == consts.STUDY_SET:
             set_list = retrieve_sets()
             set_list[index_of_set].shuffle()

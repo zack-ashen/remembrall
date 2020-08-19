@@ -10,8 +10,9 @@ class Set(object):
         self._starred_cards = _starred_cards
 
     def add_cards(self, card_list):
-        # if set already has cards
-        pass
+        """add a list of cards to the previous cards already in a set"""
+        for card in card_list:
+            self._cards.append(card)
 
     def _update_starred_cards(self):
         self._starred_cards = []
@@ -45,6 +46,22 @@ class Set(object):
     def get_starred_cards(self):
         self._update_starred_cards()
         return self._starred_cards
+
+    def reverse(self):
+        """function to flip the term and definition of all cards"""
+        for card in self.get_cards():
+            temp_term = card.get_term()
+            card.set_term(card.get_definition())
+            card.set_definition(temp_term)
+
+    def search(self, search_string):
+        """function that returns list of cards with search string in it"""
+        target_cards = []
+        for card in self.get_cards():
+            if search_string in card.get_term():
+                target_cards.append(card)
+
+        return target_cards
 
     def __len__(self):
         return len(self.get_cards())
